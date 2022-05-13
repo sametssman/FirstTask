@@ -10,7 +10,10 @@ import androidx.core.content.ContextCompat
 import kotlinx.android.synthetic.main.activity_timer.*
 
 class TimerActivity : AppCompatActivity() {
-    private lateinit var timer : CountDownTimer
+    private lateinit var timer1 : CountDownTimer
+    private lateinit var timer2 : CountDownTimer
+    private var timer1IsRunning : Boolean? = null
+    private var timer2IsRunning : Boolean? = null
     private var minute: Int? = null
     private var second : Int? = null
     private var prepareSecond : Int? = null
@@ -34,18 +37,10 @@ class TimerActivity : AppCompatActivity() {
             imageStart.isClickable = false
             imagePause.isClickable = true
             if(resume!!){
-                infoText.text = "WORK"
-                infoText.setTextColor(ContextCompat.getColor(applicationContext,R.color.bgcolor))
-                textview_countdowntimer.setTextColor(ContextCompat.getColor(applicationContext,R.color.bgcolor))
-                progress_countdown.progressDrawable = resources.getDrawable(R.drawable.circle_progress_bar)
-                progress_countdown.background = resources.getDrawable(R.drawable.circle_shape)
+                setTimerUi("WORK",R.color.bgcolor,R.drawable.circle_progress_bar,R.drawable.circle_shape)
                 startTimer(resumeTime!!)
             }else if(preparePause!!){
-                infoText.text = "PREPARE"
-                infoText.setTextColor(ContextCompat.getColor(applicationContext,R.color.paused_color))
-                textview_countdowntimer.setTextColor(ContextCompat.getColor(applicationContext,R.color.paused_color))
-                progress_countdown.progressDrawable = resources.getDrawable(R.drawable.circle_progress_bar_paused)
-                progress_countdown.background = resources.getDrawable(R.drawable.circle_shape_paused)
+                setTimerUi("PREPARE",R.color.paused_color,R.drawable.circle_progress_bar_paused,R.drawable.circle_shape_paused)
                 startPrepare(resumeTime!!)
             }else{
                 prepare()
@@ -54,39 +49,41 @@ class TimerActivity : AppCompatActivity() {
 
         imagePause.setOnClickListener {
             if(preparePause!!){
+                timer1.cancel()
                 setCountdownText(0,remainPrepareSecond!!)
                 resumeTime = remainPrepareSecond!!
             }else{
+                timer2.cancel()
                 setCountdownText(remainMinute!!,remainSecond!!)
                 resumeTime = (remainMinute!!*60) + remainSecond!!
                 resume = true
             }
-            timer.cancel()
             imagePause.isClickable = false
             imageStart.isClickable = true
-            progress_countdown.progressDrawable = resources.getDrawable(R.drawable.circle_progress_bar_paused)
-            progress_countdown.background = resources.getDrawable(R.drawable.circle_shape_paused)
-            infoText.setTextColor(ContextCompat.getColor(applicationContext,R.color.paused_color))
-            textview_countdowntimer.setTextColor(ContextCompat.getColor(applicationContext,R.color.paused_color))
-            infoText.text = "PAUSED"
+            setTimerUi("PAUSED",R.color.paused_color,R.drawable.circle_progress_bar_paused,R.drawable.circle_shape_paused)
         }
 
         imageRefresh.setOnClickListener {
-            timer.cancel()
+            if (timer1IsRunning!!){
+                timer1.cancel()
+            }else if (timer2IsRunning!!){
+                timer2.cancel()
+            }
             imagePause.isClickable = false
             imageStart.isClickable = true
             setCountdownText(minute!!,second!!)
             progress_countdown.progress = 0
-            progress_countdown.progressDrawable = resources.getDrawable(R.drawable.circle_progress_bar_paused)
-            progress_countdown.background = resources.getDrawable(R.drawable.circle_shape_paused)
-            infoText.setTextColor(ContextCompat.getColor(applicationContext,R.color.paused_color))
-            textview_countdowntimer.setTextColor(ContextCompat.getColor(applicationContext,R.color.paused_color))
-            infoText.text = "READY"
+            setTimerUi("READY",R.color.paused_color,R.drawable.circle_progress_bar_paused,R.drawable.circle_shape_paused)
             resume = false
             preparePause = false
         }
 
         imageBack.setOnClickListener {
+            if (timer1IsRunning!!){
+                timer1.cancel()
+            }else if (timer2IsRunning!!){
+                timer2.cancel()
+            }
             val intent = Intent(this,MainActivity::class.java)
             startActivity(intent)
         }
@@ -96,6 +93,8 @@ class TimerActivity : AppCompatActivity() {
         imageStart.isClickable = true
         imagePause.isClickable = false
         imageRefresh.isClickable = false
+        timer1IsRunning = false
+        timer2IsRunning = false
         preparePause = false
         resume = false
         mediaPlayer = MediaPlayer.create(applicationContext,R.raw.voice)
@@ -103,61 +102,55 @@ class TimerActivity : AppCompatActivity() {
         val sharedPreferences = getSharedPreferences("timeShared", MODE_PRIVATE)
         minute = sharedPreferences.getInt("minute",1)
         second = sharedPreferences.getInt("second",0)
+        minute = minute!! + (second!!/60)
+        second = second!! % 60
         prepareSecond = sharedPreferences.getInt("prepareSecond",3)
         time = (minute!!*60) + second!!
         setCountdownText(minute!!,second!!)
-        progress_countdown.progressDrawable = resources.getDrawable(R.drawable.circle_progress_bar_paused)
-        progress_countdown.background = resources.getDrawable(R.drawable.circle_shape_paused)
-        infoText.setTextColor(ContextCompat.getColor(applicationContext,R.color.paused_color))
-        textview_countdowntimer.setTextColor(ContextCompat.getColor(applicationContext,R.color.paused_color))
-        infoText.text = "READY"
+        setTimerUi("READY",R.color.paused_color,R.drawable.circle_progress_bar_paused,R.drawable.circle_shape_paused)
     }
 
     private fun startPrepare(startTime: Int) {
-        timer = object : CountDownTimer((startTime * 1000).toLong(),1000){
+        timer1 = object : CountDownTimer((startTime * 1000).toLong(),1000){
             override fun onTick(p0: Long) {
                 val remainTime = (p0/1000).toInt()
                 remainPrepareMinute = remainTime / 60
                 remainPrepareSecond = remainTime % 60
                 setCountdownText(remainPrepareMinute!!,remainPrepareSecond!!)
                 progress_countdown.progress = remainTime
+                timer1IsRunning = true
             }
 
             override fun onFinish() {
                 setCountdownText(minute!!,second!!)
-                progress_countdown.progressDrawable = resources.getDrawable(R.drawable.circle_progress_bar)
-                progress_countdown.background = resources.getDrawable(R.drawable.circle_shape)
-                infoText.setTextColor(ContextCompat.getColor(applicationContext,R.color.bgcolor))
-                textview_countdowntimer.setTextColor(ContextCompat.getColor(applicationContext,R.color.bgcolor))
+                setTimerUi("WORK",R.color.bgcolor,R.drawable.circle_progress_bar,R.drawable.circle_shape)
                 progress_countdown.progress = 0
                 progress_countdown.max = time!!
                 preparePause = false
-                infoText.text = "WORK"
                 startTimer(time!!)
+                timer1IsRunning = false
             }
 
         }.start()
     }
 
     private fun startTimer(startTime: Int) {
-        timer = object : CountDownTimer((startTime * 1000).toLong(),1000){
+        timer2 = object : CountDownTimer((startTime * 1000).toLong(),1000){
             override fun onTick(p0: Long) {
                 val remainTime = (p0/1000).toInt()
                 remainMinute = remainTime / 60
                 remainSecond = remainTime % 60
                 setCountdownText(remainMinute!!,remainSecond!!)
                 progress_countdown.progress = remainTime
+                timer2IsRunning = true
             }
 
             override fun onFinish() {
                 mediaPlayer!!.start()
                 imagePause.isClickable = false
                 imageStart.isClickable = false
-                infoText.text = "END"
-                infoText.setTextColor(ContextCompat.getColor(applicationContext,R.color.end_color))
-                progress_countdown.progressDrawable = resources.getDrawable(R.drawable.circle_progress_bar_end)
-                progress_countdown.background = resources.getDrawable(R.drawable.circle_shape_end)
-                textview_countdowntimer.setTextColor(ContextCompat.getColor(applicationContext,R.color.end_color))
+                setTimerUi("END",R.color.end_color,R.drawable.circle_progress_bar_end,R.drawable.circle_shape_end)
+                timer2IsRunning = false
             }
 
         }.start()
@@ -177,6 +170,14 @@ class TimerActivity : AppCompatActivity() {
                 textview_countdowntimer.text = "$minute:$second"
             }
         }
+    }
+
+    private fun setTimerUi(textInfo : String,textColor : Int,progressColor : Int,progressBackgorund : Int){
+        infoText.text = textInfo
+        infoText.setTextColor(ContextCompat.getColor(applicationContext,textColor))
+        textview_countdowntimer.setTextColor(ContextCompat.getColor(applicationContext,textColor))
+        progress_countdown.progressDrawable = resources.getDrawable(progressColor)
+        progress_countdown.background = resources.getDrawable(progressBackgorund)
     }
 
     private fun prepare(){
